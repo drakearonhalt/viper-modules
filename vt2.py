@@ -44,7 +44,7 @@ class VirusTotal2(Module):
                         },
                         'retrohunt': {
                             'list': self.retro_list,
-                            'download_matches' : self.retro_download_matches
+                            'list_matches' : self.retro_list_matches
                             }
                         }
 
@@ -125,7 +125,8 @@ class VirusTotal2(Module):
     ####
 
     def file_download(self, args):
-        
+
+        # TODO: switch to zip_file endpoint
         samples_path = os.path.join(self.cur_path, 'vt_samples')
         # for compatibility with original virustotal module
         if __sessions__.is_attached_misp(True):
@@ -220,6 +221,7 @@ class VirusTotal2(Module):
         print()
 
     def retro_list(self, args):
+        # TODO: pass limit and batch_size args 
         retro_jobs = self.vt_client.iterator('/intelligence/retrohunt_jobs',
         limit=10, batch_size=10)
         header = ['ID', 'Created','Finished', 'Matches', 'Corpus', 'Status']
@@ -229,6 +231,26 @@ class VirusTotal2(Module):
             r.corpus, r.status])
 
         self.log('table', dict(header=header, rows=rows))
+
+    def retro_list_matches(self, args):
+        # TODO: option to write to csv? 
+        try: 
+            matching_files = self.vt_client.iterator(f'/intelligence/retrohunt_jobs/{args.target}/matching_files',
+                    batch_size=10, limit=30)
+        except vt.APIError as e:
+            self.log('error', e.message)
+            return
+
+        header = ['SHA256', 'Rule Name', 'Detections', 'Size','Type' ,'First Seen', 'Last Seen', 'Submitters']
+        rows = []
+        for m in matching_files:
+            c = m.context_attributes
+            rows.append([m.sha256, c['rule_name'], m.last_analysis_stats['malicious'],
+                    m.size, m.type_tag, m.first_submission_date, m.last_submission_date, m.unique_sources]) 
+             
+        self.log('table', dict(header=header, rows=rows))
+            
+
 
     def  run(self):
 
